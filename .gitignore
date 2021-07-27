@@ -3,3 +3,8 @@
 ################################################################################
 
 /.vs
+/__pycache__
+/ports&tracking_column_descriptions.csv
+/ports.csv
+/tracking.csv
+/voyages.csv
