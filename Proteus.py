@@ -64,10 +64,11 @@ voyageFrame = pd.DataFrame({
     'end_port_id' : filtered.loc[filtered['portDiff']>0, 'portDiff'].astype(int)
     })
 
-print("Performing Cleanup...")
+
 #Do Some Cleanup, there may be a better way to construct the dataframe such that
 #there is less cleanup that needs to be done. Better construction also means that less
 #memory is taken up. This works for now, but if there is time try to clean it up better. 
+print("Performing Cleanup...")
 voyageFrame['begin_port_id'] = voyageFrame['begin_port_id'].abs()
 voyageFrame['end_port_id'] = voyageFrame['end_port_id'].shift(-1)
 voyageFrame['end_date'] = voyageFrame['end_date'].shift(-1)
