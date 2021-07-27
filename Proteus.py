@@ -91,6 +91,28 @@ voyageFrame = voyageFrame.reset_index(drop=True)
 print("Writing to file...")
 voyageFrame.to_csv (r'voyages.csv', index = False, header=True)
 
-#debug
-print(voyageFrame)
+#Data Exploration
+#Unique voyages
+
+#allVoyages is a dataframe that contains all voyages along with a unique voyage speficier
+allVoyages = voyageFrame.sort_index()
+allVoyages = allVoyages.drop(['begin_date', 'end_date'], axis =1)
+allVoyages = allVoyages.sort_values(by=['begin_port_id', 'end_port_id'])
+
+#uniqueVoyages is a dataframe that contains all unique voyages, regardless of ship
+uniqueVoyages = allVoyages.drop(['vessel', 'voyage'], axis = 1)
+uniqueVoyages= uniqueVoyages.drop_duplicates()
+uniqueVoyages = uniqueVoyages.sort_values(by=['begin_port_id', 'end_port_id'])
+uniqueVoyages['voyage_id'] = range(len(uniqueVoyages))
+uniqueVoyages['vessel'] = allVoyages['vessel']
+
+#Finishing creating up allVoyages with unique data
+allVoyages['voyage_id']= uniqueVoyages['voyage_id']
+allVoyages['voyage_id'] = allVoyages['voyage_id'].fillna(method="ffill")
+allVoyages['voyage_id'] = allVoyages['voyage_id'].apply(trident.np.int64)
+
+
+
+print(allVoyages[allVoyages['begin_port_id']==90])
+print(uniqueVoyages[uniqueVoyages['begin_port_id']==90])
 
