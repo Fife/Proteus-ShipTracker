@@ -113,6 +113,116 @@ allVoyages['voyage_id'] = allVoyages['voyage_id'].apply(trident.np.int64)
 
 
 
-print(allVoyages[allVoyages['begin_port_id']==90])
-print(uniqueVoyages[uniqueVoyages['begin_port_id']==90])
+#print(allVoyages[allVoyages['begin_port_id']==90])
+#print(uniqueVoyages[uniqueVoyages['begin_port_id']==90])
 
+# In[9]:
+
+
+#Implementing a ML Model Step 1: 
+#Setting up the training data
+
+#2 or 3 Data Frames, still trying to figure out exactly what the model needs.
+#Will probably edit this cell/portion multiple times
+
+
+# # of times completed a voyage
+allVoyageStats = allVoyages.sort_values(by=['voyage_id'])
+allVoyageStats['global_voy_freq'] = allVoyageStats.groupby('voyage_id')['voyage_id'].transform('count')
+
+# # of total voyages out of port
+allVoyageStats['total_voy_out_port'] = allVoyageStats.groupby('begin_port_id')['begin_port_id'].transform('count')
+
+# # of times particular vessel completed voyage
+vesselStats = allVoyageStats.sort_values(by=['vessel', 'voyage_id'])
+vesselStats['times_compl_vessel'] = vesselStats.groupby(['voyage_id', 'vessel'])['voyage_id'].transform('count')
+
+# # of total voyages for vessel
+vesselStats['total_voy_vessel'] = vesselStats.groupby('vessel')['voyage_id'].transform('count')
+
+# # of endpoints for a given start point
+trainingData = vesselStats
+trainingData['num_endpoints'] = vesselStats.groupby(['begin_port_id'])['end_port_id'].transform('nunique')
+
+#uniqueVoyages
+#trainingData[trainingData['begin_port_id']==32]['vessel' == ].sort_values(by=['global_voy_freq'])
+
+
+# In[10]:
+
+
+#Implementing a ML Model Step 2: 
+#Aggrigate the Data into 2 weight tables
+    # Global weight table 
+    # Historical Vessel weight table
+
+
+globalWeight = trainingData.drop(['voyage','times_compl_vessel','total_voy_vessel', 'vessel'], axis =1).drop_duplicates()
+
+globalWeight['Mg/Ne'] = (globalWeight['global_voy_freq']/globalWeight['total_voy_out_port'])/globalWeight['num_endpoints']
+globalWeight['Mg/Ne'] = globalWeight['Mg/Ne']
+
+globalWeight = globalWeight.drop(['voyage_id'], axis=1).drop_duplicates()
+
+
+globalWeight['Sigma'] = globalWeight.groupby('begin_port_id')['Mg/Ne'].transform('sum')
+globalWeight['GlobalWeight'] = globalWeight['Mg/Ne']/globalWeight['Sigma']
+globalWeight = globalWeight.drop(['global_voy_freq','total_voy_out_port','num_endpoints'], axis =1)
+
+print(globalWeight)#[globalWeight['begin_port_id']==27])
+
+histWeight = trainingData.drop(['voyage','total_voy_out_port','times_compl_vessel','global_voy_freq','num_endpoints' ], axis =1)
+
+histWeight['times_ended_at'] = histWeight.groupby(['vessel','end_port_id'])['vessel'].transform('count')
+histWeight['Mv'] = histWeight['times_ended_at']/histWeight['total_voy_vessel']
+#histWeight = histWeight.drop_duplicates()
+print(histWeight[histWeight['vessel']==1])#.sort_index())
+
+
+# In[11]:
+
+
+#Implementing a ML Model Step 3:
+#Write a function to easily generate guesses given the 2 weight table frames. 
+#Populate a new data frame containing predictions.
+predictFrame = histWeight
+predictFrame = predictFrame.sort_values(by=['vessel'])
+predictFrame = predictFrame.merge(globalWeight)
+
+predictFrame = predictFrame.drop(['Mg/Ne','Sigma','total_voy_vessel','times_ended_at',], axis =1)
+predictFrame
+
+predictFrame['guess'] = predictFrame['Mv']*predictFrame['GlobalWeight']
+
+#When we make a prediction:
+    #Multiply all globals by corresponding Mv's, 
+    #Any that don't exist for a given Vessel, get multiplied by 0
+    #Sort by result, and pick the highest number
+
+#If no history of endport in vessel, check for a suitable endport across all voyages
+#A suitable endpoint would be a port_id that exists as an endport in another vessel history
+#and also exists in the current vessel    
+
+ 
+lastKnown= histWeight[histWeight['vessel']==1].sort_index()
+vesselList = histWeight.vessel.unique()
+vesselList = vesselList.tolist()
+beegGuess = pd.DataFrame()
+for i in vesselList:
+    lastKnown= histWeight[histWeight['vessel']==i].sort_index()
+    last = lastKnown['end_port_id'].iloc[-1]
+    beegGuess = beegGuess.append(trident.generateGuesses(predictFrame,i, last,3))
+    beegGuess = beegGuess.drop_duplicates()
+finalGuess = beegGuess
+
+
+# In[23]:
+
+finalGuess.reset_index(drop = True)
+finalGuess.to_csv(r'predict.csv', index = False, header=True)
+#finalGuess
+
+
+finalGuess.reset_index(drop = True)
+finalGuess.to_csv(r'predict.csv', index = False, header=True)
+#finalGuess
