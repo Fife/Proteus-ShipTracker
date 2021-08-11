@@ -28,9 +28,10 @@ def KDTree(dataFrame):
 #Returns 0 if vessel is slowed but away from port. 
 def findNearestPort(lat, long, tree, dataFrame):
     cartCoord = cartesian(lat, long)
-    nearest = tree.query([cartCoord], p=2)
+    nearest = tree.query([cartCoord], p=2, distance_upper_bound=3)
     index = nearest[1][0]
-    if nearest[0][0] > 7:
+    #print(nearest[0][0])
+    if nearest[0][0] > 1.65:
         return 0
     else:
         return dataFrame.port[index]
