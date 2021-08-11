@@ -1,0 +1,13 @@
+Dependencies to make Proteus function:
+
+In order for proteus to function, it needs two more files, trident.py, and chart.py in order to function.
+The dependencies needed for trident.py and chart.py to run are as follows:
+
+Pandas:
+https://pandas.pydata.org/
+
+SciPy:
+https://www.scipy.org/
+
+Numpy:
+https://numpy.org/

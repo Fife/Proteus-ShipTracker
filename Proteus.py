@@ -79,4 +79,4 @@ finalGuess = finalGuess.sort_values(by=['vessel', 'voyage'])
 finalGuess = finalGuess.reset_index(drop = True).drop(['voyage_id'], axis =1)
 finalGuess.to_csv(r'predict.csv', index = False, header=True)
 
-print(finalGuess)#[finalGuess['begin_port_id'] == finalGuess['end_port_id']]
+print(finalGuess)

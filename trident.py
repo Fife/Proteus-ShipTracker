@@ -28,10 +28,10 @@ def KDTree(dataFrame):
 #Returns 0 if vessel is slowed but away from port. 
 def findNearestPort(lat, long, tree, dataFrame):
     cartCoord = cartesian(lat, long)
-    nearest = tree.query([cartCoord], p=2, distance_upper_bound=3)
+    nearest = tree.query([cartCoord], p=2, distance_upper_bound=10)
     index = nearest[1][0]
     #print(nearest[0][0])
-    if nearest[0][0] > 1.65:
+    if nearest[0][0] > 3.5:
         return 0
     else:
         return dataFrame.port[index]
@@ -99,41 +99,46 @@ def generateGuesses(dF, vessel, start_p, numGuesses):
 
 def writeVesselFrame(filtered):
     #Construct DataFrame from filtered results
-        voyageFrame = pd.DataFrame({
-            'vessel' : filtered.loc[filtered['portDiff']!=0, 'vessel'].astype(int),
-            'begin_date': filtered.loc[filtered['portDiff']<0, 'datetime'],
-            'end_date': filtered.loc[filtered['portDiff']>0, 'datetime'],
-            'begin_port_id' : filtered.loc[filtered['portDiff']<0, 'portDiff'].astype(int),
-            'end_port_id' : filtered.loc[filtered['portDiff']>0, 'portDiff'].astype(int)
-            })
+    voyageFrame = pd.DataFrame({
+        'vessel' : filtered.loc[filtered['portDiff']!=0, 'vessel'].astype(int),
+        'begin_date': filtered.loc[filtered['portDiff']<0, 'datetime'],
+        'end_date': filtered.loc[filtered['portDiff']>0, 'datetime'],
+        'begin_port_id' : filtered.loc[filtered['portDiff']<0, 'portDiff'].astype(int),
+        'end_port_id' : filtered.loc[filtered['portDiff']>0, 'portDiff'].astype(int)
+        })
 
+        
+    #Do Some Cleanup, there may be a better way to construct the dataframe such that
+    #there is less cleanup that needs to be done. Better construction also means that less
+    #memory is taken up. This works for now, but if there is time try to clean it up better. 
+    print("Performing Cleanup...")
+    voyageFrame['begin_port_id'] = voyageFrame['begin_port_id'].abs()
+    voyageFrame['end_port_id'] = voyageFrame['end_port_id'].shift(-1)
+    voyageFrame['end_date'] = voyageFrame['end_date'].shift(-1)
 
-        #Do Some Cleanup, there may be a better way to construct the dataframe such that
-        #there is less cleanup that needs to be done. Better construction also means that less
-        #memory is taken up. This works for now, but if there is time try to clean it up better. 
-        print("Performing Cleanup...")
-        voyageFrame['begin_port_id'] = voyageFrame['begin_port_id'].abs()
-        voyageFrame['end_port_id'] = voyageFrame['end_port_id'].shift(-1)
-        voyageFrame['end_date'] = voyageFrame['end_date'].shift(-1)
-        voyageFrame = voyageFrame.dropna()
-        voyageFrame = voyageFrame[voyageFrame['begin_port_id'] != voyageFrame['end_port_id']]
+    voyageFrame = voyageFrame.dropna()
 
-        #The port ids get somehow assigned to float (maybe abs()?) so the id's must be cast to int
-        voyageFrame['begin_port_id'] = voyageFrame['begin_port_id'].apply(np.int64)
-        voyageFrame['end_port_id'] = voyageFrame['end_port_id'].apply(np.int64)
+    #print(voyageFrame[voyageFrame['vessel'] == 176])
+    voyageFrame = voyageFrame[voyageFrame['begin_port_id'] != voyageFrame['end_port_id']]
+        
+    #The port ids get somehow assigned to float (maybe abs()?) so the id's must be cast to int
+    voyageFrame['begin_port_id'] = voyageFrame['begin_port_id'].apply(np.int64)
 
-        #Sort Values by date
-        voyageFrame = voyageFrame.sort_values(by = ['begin_date'])
-
-        #Label Voyage data
-        voyageFrame['voyage'] = range(len(voyageFrame))
-        voyageFrame['voyage'] = voyageFrame['voyage'] +1
-        voyageFrame = voyageFrame.reset_index(drop=True)
-
-        #Write voyage data to .csv file
-        print("Writing to file...")
-        voyageFrame.to_csv (r'voyages.csv', index = False, header=True)
-        return voyageFrame
+    voyageFrame['end_port_id'] = voyageFrame['end_port_id'].apply(np.int64)
+        
+    #Sort Values by date
+    voyageFrame = voyageFrame.sort_values(by = ['begin_date'])
+        
+    #Label Voyage data
+    voyageFrame['voyage'] = range(len(voyageFrame))
+    voyageFrame['voyage'] = voyageFrame['voyage'] +1
+    voyageFrame = voyageFrame.reset_index(drop=True)
+    
+    #Write voyage data to .csv file
+    print("Writing to file...")
+    voyageFrame = voyageFrame.sort_values(by=['vessel', 'voyage'])
+    voyageFrame.to_csv(r'voyages.csv', index = False, header=True)
+    return voyageFrame
 
 
 def genFiltered(rawTrackingFrame, rawPortFrame):
