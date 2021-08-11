@@ -30,7 +30,7 @@ def findNearestPort(lat, long, tree, dataFrame):
     cartCoord = cartesian(lat, long)
     nearest = tree.query([cartCoord], p=2)
     index = nearest[1][0]
-    if nearest[0][0] > 10:
+    if nearest[0][0] > 7:
         return 0
     else:
         return dataFrame.port[index]
