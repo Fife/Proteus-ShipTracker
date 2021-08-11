@@ -30,7 +30,7 @@ def findNearestPort(lat, long, tree, dataFrame):
     cartCoord = cartesian(lat, long)
     nearest = tree.query([cartCoord], p=2)
     index = nearest[1][0]
-    if nearest[0][0] > 50:
+    if nearest[0][0] > 10:
         return 0
     else:
         return dataFrame.port[index]
@@ -46,22 +46,53 @@ def generateGuesses(dF, vessel, start_p, numGuesses):
         # If no suitable end port is found,pull data from global model
         if (dF[(dF['vessel']== vessel) & (dF['begin_port_id']==start_p)]['guess'].empty):
             temp = dFGlobal
-
-            temp = temp.drop_duplicates(subset = 'end_port_id')
-            temp = dFGlobal[dFGlobal['begin_port_id'] == start_p]
-            guess = temp[temp['GlobalWeight'] ==temp['GlobalWeight'].max()]
-            guess_p = guess['end_port_id'].iloc[0]
-            start_p = guess_p
+            #temp = temp.drop_duplicates(subset = 'end_port_id')
+            #If nothing suitable is found in the global model, pick from most frequented destination in Vessel history
+            if (dFGlobal[dFGlobal['begin_port_id'] == start_p].empty):
+                guess = dF[dF['Mv'] == dF['Mv'].max()]
+            else:
+                #temp = dFGlobal[dFGlobal['begin_port_id'] == start_p]
+                #Preference: By Global Weight - Worst Performance - ~27%
+                #guess = temp[temp['GlobalWeight'] ==temp['GlobalWeight'].max()]
+                
+                #Preference: By Vessel Weight - Best Performance ~30%
+                guess = dF[dF['guess'] == dF['guess'].max()]
+                
+                #Preference: By Global combined - In between ~28%
+                #guess = temp[temp['guess'] ==temp['guess'].max()]
+            
+            if (guess['end_port_id'].size >1):
+                randIndex = np.random.randint(guess['end_port_id'].size)
+                guess_p = guess['end_port_id'].iloc[randIndex]
+                voyage_id = guess['voyage_id'].iloc[randIndex]
+            else:
+                guess_p = guess['end_port_id'].iloc[0]
+                voyage_id = guess['voyage_id'].iloc[0]
         #Else, pull data from suitable historical model
         else:
             guess = dF[(dF['vessel']== vessel) & (dF['begin_port_id']==start_p)]['guess'].max()
-            guess_p = dF[dF['guess'] == guess].drop_duplicates()['end_port_id'].iloc[0]
-            start_p = guess_p
+            guessF = dF[dF['guess'] == guess]
+            guessF = guessF.drop_duplicates()
+            guess_p = guessF['end_port_id'].iloc[0]
+            voyage_id = guessF['voyage_id'].iloc[0]
+            
+        if (start_p == guess_p):
+            guess = dFGlobal[(dFGlobal['begin_port_id']==start_p)]['GlobalWeight'].max()
+            guessF = dFGlobal[dFGlobal['GlobalWeight'] == guess]
+            guessF = guessF.drop_duplicates()
+            if (guessF.empty):
+                guess = dFGlobal[(dFGlobal['vessel']!=vessel)]['Mv'].max()
+                guessF = dFGlobal[dFGlobal['Mv'] == guess]
+                guessF = guessF.drop_duplicates()
+            guess_p = guessF['end_port_id'].iloc[0]
+            voyage_id = guessF['voyage_id'].iloc[0]
 
+        start_p = guess_p
         guessFrame = guessFrame.append(pd.DataFrame({'vessel' : [vessel] ,
                                 'begin_port_id' : [lastStart],
                                 'end_port_id'  : [guess_p],
-                                'voyage' : [x+1] }))
+                                'voyage' : [x+1],
+                                'voyage_id' : [voyage_id]}))
     return guessFrame
 
 
@@ -123,7 +154,7 @@ def genFiltered(rawTrackingFrame, rawPortFrame):
 
     print("Finding NN of ports for vessels...")
 
-    threshold = 7
+    threshold = 3
     #Create df from vessels whose speed is less than some threshold knots
     df = sortedVesselFrame[sortedVesselFrame['speed'] < threshold]
 
