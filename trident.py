@@ -136,8 +136,9 @@ def writeVesselFrame(filtered):
     
     #Write voyage data to .csv file
     print("Writing to file...")
-    voyageFrame = voyageFrame.sort_values(by=['vessel', 'voyage'])
-    voyageFrame.to_csv(r'voyages.csv', index = False, header=True)
+    voyageFrame = voyageFrame.sort_values(by=['vessel'])
+    answer = voyageFrame
+    answer.drop(['voyage'], axis=1).to_csv(r'voyages.csv', index = False, header=True)
     return voyageFrame
 
 
